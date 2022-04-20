@@ -1,23 +1,36 @@
+# -----------------------------------------------------------
+# Juego simple para entender la inteligencia artificial
+#
+# (C) 2022 Iván García Ferreira,
+# Released under MIT License
+# -----------------------------------------------------------
+
 import numpy as np
 import random
 import os
 from os.path import exists
 import pickle
 
+# Con esta variable se controla el funcionamiento del programa:
+# 1: Tu juegas contra el programa viendo las estadísticas
+# 0: El programa juega contra si mismo generando su propia inteligencia
 DEBUG = 1
 
 # Inicializamos el número de filas y columnas que queremos 
 FILAS = 3
 COLUMNAS = 3
 
+###
 class juego():
+	"""Clase principal del juego."""
 	def __init__(self):
 		self.fin = False
 		# Creamos una array de cerosa con las filas y columnas para recrear el tablero
 		self.tablero = np.zeros((FILAS, COLUMNAS), dtype=int)
 
-	def clear_output(self):
-		os.system ("cls") 
+	def limpiar_pantalla(self):
+		os.system ("cls")
+
 	def dibujar_tablero(self):
 		contador_fila=0
 		print("  1 2 3")
@@ -55,14 +68,22 @@ class juego():
 				return jugador
 		return 0
 
-	def partida(self, j1, j2, numero_partidas=1):
+	def partida(self, j1, j2):
+		"""Clase para inicializar la partida.
+
+		Se inicializa para jugar una partida de tres en raya
+
+		:param j1: Primer jugador
+		:param j2: Segundo jugador
+		:return: Sin valor de retorno
+		"""
 		turno = 0
-		comienzo_aleatorio = random.randint(0, 1)
-		# comienzo_aleatorio = 1
+		# Hacemos que el comienzo sea aleatorio para que empiece uno u otro indistintamente 
+		comienzo_aleatorio = random.randint(0, 1) 
 		while self.fin == False:
 			turno+=1
 			if DEBUG:
-				self.clear_output()
+				self.limpiar_pantalla()
 				self.dibujar_tablero()
 				print(comienzo_aleatorio)
 				print("Turno "+str(turno))
@@ -76,7 +97,7 @@ class juego():
 				self.tablero = j2.turno(self.tablero)
 			ganador = self.comprobar_ganador()
 			if ganador != 0:
-				self.clear_output()
+				self.limpiar_pantalla()
 				if j1.comprobar_ficha() == ganador:
 					j1.ganador(self.tablero)
 					if DEBUG:
@@ -87,7 +108,7 @@ class juego():
 						print("Ganador el jugador 2")
 						self.dibujar_tablero()
 			if turno == 9 and ganador == 0:
-				self.clear_output()
+				self.limpiar_pantalla()
 				if DEBUG:
 					print("Se ha producido un empate")
 					self.dibujar_tablero()
@@ -95,6 +116,10 @@ class juego():
 
 
 class jugador_humano():
+	"""Clase para jugar una partida un humano.
+	
+	Te va pidiendo valores de fila y columna para que pongas donde quieres colocar la ficha
+	"""
 	def __init__(self, eleccion):
 		if eleccion == "O":
 			self.ficha = 1
@@ -120,6 +145,7 @@ class jugador_humano():
 
 
 class jugador_aleatorio():
+	"""Clase para jugar una partida con una IA aleatoria."""
 	def __init__(self, eleccion):
 		if eleccion == "O":
 			self.ficha = 1
@@ -144,12 +170,14 @@ class jugador_aleatorio():
 		return self.ficha
 
 class jugador_IA():
+	"""Clase para jugar una partida con una IA que se puede entrenar."""
 	def __init__(self, eleccion):
 		if eleccion == "O":
 			self.ficha = 1
 		else:
 			self.ficha = 2
 		self.tasa_aprendizaje = 0.2
+		# Inicializamos un diccionario para almacenar las posibilidades de ganar de cada posicion
 		self.estado_valor = {}
 		self.cargar_politica()
 		self.ultima_posicion_jugada = np.zeros((FILAS, COLUMNAS), dtype=int)
@@ -173,13 +201,13 @@ class jugador_IA():
 				if tablero[fila-1, columna-1] == 0:
 					tablero[fila-1, columna-1] = self.ficha
 					colocada = True
+			# Se actualiza el diccionario donde se guardan las probabilidades de ganar
 			self.estado_valor[self.serializar(tablero_antiguo)] = self.probabilidad(tablero_antiguo)+self.tasa_aprendizaje*(self.probabilidad(tablero)-self.probabilidad(tablero_antiguo))
 			if DEBUG:
 				print("Juego aleatorio")
 				input('Pulsa')
 			return tablero
 		else:
-			# Aquí poner la inteligencia
 			# Ver las posibles posiciones que puedo tomar
 			posiciones = self.conseguir_posiciones(tablero)
 			mejor_valor = 0
@@ -188,10 +216,11 @@ class jugador_IA():
 			for posicion in posiciones:
 				# Ver la probabilidad de ganar
 				valor = self.probabilidad(posicion)
-				# Si esta posición es mayor que la anterior
+				# Si esta posición es mayor que la anterior se guarda
 				if valor > mejor_valor:
 					mejor_valor = valor
 					mejor_jugada = posicion
+			# Se actualiza el diccionario donde se guardan las probabilidades de ganar
 			self.estado_valor[self.serializar(tablero)] = self.probabilidad(tablero)+self.tasa_aprendizaje*(self.probabilidad(mejor_jugada)-self.probabilidad(tablero))
 			if DEBUG:
 				print("Guardo: " + str(self.serializar(tablero)) + " con probabilidad: " + str(self.estado_valor.get(self.serializar(tablero))))
@@ -206,6 +235,7 @@ class jugador_IA():
 			return mejor_jugada
 
 	def conseguir_posiciones(self, tablero):
+		"""Devuelve una lista con las posiciones posibles para jugar en el tablero actual"""
 		contador= 0
 		jugadas = []
 		for i in tablero.reshape(FILAS*COLUMNAS):
@@ -227,12 +257,14 @@ class jugador_IA():
 			pickle.dump(self.estado_valor, f)
 	
 	def probabilidad(self, posicion):
+		"""Devuelve la probabilidad de ganar de una posicion"""
 		if self.estado_valor.get(self.serializar(posicion)) == None:
 			return 0.5
 		else:
 			return self.estado_valor[self.serializar(posicion)]
 
 	def serializar(self, posic):
+		"""Devuelve el valor serializado de una posición"""
 		aux = posic.reshape(FILAS*COLUMNAS)
 		return ''.join([str(item) for item in aux])
 
@@ -242,6 +274,8 @@ class jugador_IA():
 			print("ha ganado la IA")
 		self.guardar_politica()
 
+# Comienza la partida según esté en modo debug o no
+# Si no está en modo debug juega 50.000 veces contra si mismo
 if __name__ == '__main__':
 	if DEBUG == 1:
 		j1 = jugador_humano("X")
